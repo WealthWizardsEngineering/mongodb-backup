@@ -16,8 +16,6 @@ clean_environment(){
 }
 trap clean_environment EXIT
 
-source ~/tmp/restore/.env
-
 S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}"
 
 POST2INFLUX="curl -XPOST --data-binary @- ${INFLUXDB_URL}"
