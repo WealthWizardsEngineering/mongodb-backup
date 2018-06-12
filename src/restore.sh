@@ -11,10 +11,14 @@ unset_vars() {
 }
 
 clean_environment(){
-  rm -Rf /tmp/*
+  rm -Rf /tmp/${BUCKET}
   unset_vars
 }
 trap clean_environment EXIT
+
+source ~/tmp/restore/.env
+
+S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}"
 
 POST2INFLUX="curl -XPOST --data-binary @- ${INFLUXDB_URL}"
 
@@ -24,14 +28,14 @@ HOST_STR=${MONGODB_HOST}
 [[ ( -n "${MONGODB_REPLICASET}" ) ]] && REPLICA_SET_STR="replicaSet=${MONGODB_REPLICASET}&"
 
 INFLUXDB_HOSTPORT="influx.wealthwizards.io:8086"
-CMD_MKDIR="mkdir -p /tmp/${BACKUP_NAME}"
+CMD_MKDIR="mkdir -p /tmp/${BUCKET}"
 
 MONGDB_CONNECTION_URI="mongodb://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_HOST}:${MONGODB_PORT}/admin?${REPLICA_SET_STR}authSource=admin"
 
 CMD_S3_GET="/usr/bin/s3cmd -e \
  --server-side-encryption -r \
  get s3://${S3_BACKUP_NAME} \
- /tmp/${S3_BACKUP_NAME}"
+ /tmp/${BUCKET}"
 
 CMD_RESTORE="mongorestore \
  --host ${HOST_STR} \
@@ -40,7 +44,7 @@ CMD_RESTORE="mongorestore \
  --username ${MONGODB_USER} \
  --password ${MONGODB_PASS} \
  --db ${MONGODB_DB} \
- /tmp/${S3_BACKUP_NAME}"
+ /tmp/${BUCKET}"
 
 
 echo "=> Restore database ${MONGODB_DB}"
