@@ -16,7 +16,16 @@ clean_environment(){
 }
 trap clean_environment EXIT
 
-S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}"
+if [[ ${MONGODB_DB} = all ]] ; then
+  S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}"
+  RESTORE_PATH="/tmp/${BUCKET}/${BACKUP_NAME}/"
+  RESTORE_DB=""
+else
+  S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}/${MONGODB_DB}"
+  RESTORE_PATH="/tmp/${BUCKET}/${MONGODB_DB}/"
+  RESTORE_DB="--db ${MONGODB_DB}"
+fi
+
 
 POST2INFLUX="curl -XPOST --data-binary @- ${INFLUXDB_URL}"
 
@@ -41,9 +50,7 @@ CMD_RESTORE="mongorestore \
  --authenticationDatabase admin \
  --username ${MONGODB_USER} \
  --password ${MONGODB_PASS} \
- --db ${MONGODB_DB} \
- /tmp/${BUCKET}/${BACKUP_NAME}"
-
+ ${RESTORE_DB} ${RESTORE_PATH}"
 
 echo "=> Restore database ${MONGODB_DB}"
 ${CMD_MKDIR}
