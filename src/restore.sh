@@ -42,7 +42,7 @@ CMD_RESTORE="mongorestore \
  --username ${MONGODB_USER} \
  --password ${MONGODB_PASS} \
  --db ${MONGODB_DB} \
- /tmp/${BUCKET}"
+ /tmp/${BUCKET}/${BACKUP_NAME}"
 
 
 echo "=> Restore database ${MONGODB_DB}"
