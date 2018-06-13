@@ -91,7 +91,7 @@ SECRET_KEY={from-s3-user-created-above}
 
 # Restore a database
 
-Set MONGODB_DB to the name of the database and S3_BACKUP_NAME to the name of the backup as stored in the S3 bucket (e.g. 2017.06.29.140428) to restore and use /restore.sh as the CMD.
+Set MONGODB_DB to the name of a specific database or "all" to restore all DBs in the backup location. Set BUCKET to the name of the S3 bucket, POLICY_CYCLE to defined the sub dir in the bucket and BACKUP_NAME (e.g. 2017.06.29.140428) to specify the backup to restore and use /restore.sh as the CMD.
 
 
 Test restore locally to a Docker mongo instance:
@@ -110,19 +110,21 @@ MONGODB_HOST=10.10.10.1
 MONGODB_PORT=27017
 MONGODB_USER=restore-user
 MONGODB_PASS=password
-BUCKET={bucket/cluster-to-retore}
+BUCKET={bucket/cluster-to-restore}
 SERVER_SIDE_ENCRYPTION_KMS_ID={kms-key-id}
 GPG_PHRASE={phrase}
 ACCESS_KEY={aws-access-key}
 SECRET_KEY={aws-secret-key}
-MONGODB_DB=DB_name
-S3_BACKUP_NAME=2017.08.10.020001
+MONGODB_DB=all
+BACKUP_NAME=2017.08.10.020001
+POLICY_CYCLE=weekly
 ```
 
 Where:
 * MONGODB_HOST is your laptop's IP (localhost won't work because the restore is running inside Docker)
 * MONGODB_DB is the database to restore
-* S3_BACKUP_NAME is the folder in S3 to restore, this should be the date/time that the backup was taken
+* BACKUP_NAME is the backup iteration in S3 to restore, this should be the date/time that the backup was taken
+* POLICY_CYCLE is the directory where you find the backup file.
 
 Build the image locally if you haven't, then run the image with the /restore.sh command
 
