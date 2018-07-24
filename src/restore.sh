@@ -1,13 +1,15 @@
 #!/bin/bash
-set -exo pipefail
+set -eo pipefail
 
 unset_vars() {
   unset MONGODB_REPLICASET
-  unset SERVER_SIDE_ENCRYPTION_KMS_ID
   unset MONGODB_PASS
   unset GPG_PHRASE
   unset ACCESS_KEY
   unset SECRET_KEY
+  echo "Revoking lease: ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}"
+  curl -sS --request PUT --header "X-Vault-Token: ${APPROLE_TOKEN}" \
+    ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}
 }
 
 clean_environment(){
@@ -15,6 +17,9 @@ clean_environment(){
   unset_vars
 }
 trap clean_environment EXIT
+
+# Get AWS keys
+source /environment.sh
 
 if [[ ${MONGODB_DB} = all ]] ; then
   S3_BACKUP_NAME="${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}"
