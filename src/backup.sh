@@ -1,5 +1,5 @@
 #!/bin/bash
-set -exo pipefail
+set -eo pipefail
 
 # Default to shortest retention period
 # If the day/date checks below natch, increase the retention, appropriate to the matched period. 
