@@ -1,5 +1,5 @@
 #!/bin/bash
-set -exo pipefail
+set -eo pipefail
 
 unset_vars() {
   unset MONGODB_REPLICASET
