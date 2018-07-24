@@ -1,16 +1,18 @@
 #!/bin/bash
-set -exo pipefail
+set -eo pipefail
 
 # Default to shortest retention period
 # If the day/date checks below natch, increase the retention, appropriate to the matched period. 
 
 unset_vars() {
   unset MONGODB_REPLICASET
-  unset SERVER_SIDE_ENCRYPTION_KMS_ID
   unset MONGODB_PASS
   unset GPG_PHRASE
   unset ACCESS_KEY
   unset SECRET_KEY
+  echo "Revoking lease: ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}"
+  curl -sS --request PUT --header "X-Vault-Token: ${APPROLE_TOKEN}" \
+    ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}
 }
 
 clean_environment(){
@@ -18,6 +20,9 @@ clean_environment(){
   unset_vars
 }
 trap clean_environment EXIT
+
+# Get AWS keys
+source /environment.sh
 
 # Define how we post monitoring status messages
 POST2INFLUX="curl -XPOST --data-binary @- ${INFLUXDB_URL}"
@@ -78,8 +83,7 @@ CMD_BACKUP="mongodump --out /tmp/${BACKUP_NAME} \
  --password ${MONGODB_PASS}"
 
 # And encrypt (-e) and push to S3 bucket
-CMD_S3_PUT="/usr/bin/s3cmd -e \
- --server-side-encryption \
+CMD_S3_PUT="/usr/bin/s3cmd \
  -r put /tmp/${BACKUP_NAME}/${item_str} \
  s3://${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}/"
 
