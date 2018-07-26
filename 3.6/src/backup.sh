@@ -72,7 +72,7 @@ MONGDB_CONNECTION_URI="mongodb://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_HOST}
 
 # build a list of which databases to backup
 DATABASES=$(mongo $MONGDB_CONNECTION_URI --quiet --eval "db.getMongo().getDBNames()" | \
-              grep -v $(date +%Y-%m-%d) | \
+              egrep -v $(date +%Y-%m-%d)\|config | \
               jq -r '.[]') \
               || { POST2INFLUX "database_listing_failed,instance=${REPLICA_SET} value=true" && exit 1; }
 echo "Databases to backup:"
@@ -100,7 +100,7 @@ push_to_s3() {
 
   POST2INFLUX "database_s3-put_started,instance=${REPLICA_SET},database=${db} value=true"
 
-  s3cmd put --recursive /tmp/${BACKUP_NAME}/${db} s3://${BUCKET}/${POLICY_CYCLE}/${db}/ \
+  s3cmd put --recursive /tmp/${BACKUP_NAME}/${db} s3://${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}/ \
     || { POST2INFLUX "database_s3-put_failed,instance=${REPLICA_SET},database=${db} value=true" && return; }
 
   POST2INFLUX "database_s3-put_completed,instance=${REPLICA_SET},database=${db} value=true"
