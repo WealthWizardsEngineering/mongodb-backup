@@ -25,7 +25,10 @@ trap clean_environment EXIT
 source /environment.sh
 
 # Define how we post monitoring status messages
-POST2INFLUX="curl -XPOST --data-binary @- ${INFLUXDB_URL}"
+POST2INFLUX() {
+  local data=$1
+  curl -XPOST --data-binary "${data}" ${INFLUXDB_URL}
+}
 
 REPLICA_SET=${MONGODB_REPLICASET}
 HOST_STR=${MONGODB_HOST}
@@ -71,46 +74,49 @@ MONGDB_CONNECTION_URI="mongodb://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_HOST}
 DATABASES=$(mongo $MONGDB_CONNECTION_URI --quiet --eval "db.getMongo().getDBNames()" | \
               grep -v $(date +%Y-%m-%d) | \
               jq -r '.[]') \
-              || { echo -n "database_listing_failed,instance=${REPLICA_SET} value=true" | ${POST2INFLUX} && exit 1; }
+              || { POST2INFLUX "database_listing_failed,instance=${REPLICA_SET} value=true" && exit 1; }
 echo "Databases to backup:"
 echo $DATABASES
 
-# Use this to perform the backup
-CMD_BACKUP="mongodump --out /tmp/${BACKUP_NAME} \
- --host ${HOST_STR} \
- --port ${MONGODB_PORT} \
- --authenticationDatabase admin \
- --username ${MONGODB_USER} \
- --password ${MONGODB_PASS}"
+backup_db() {
+  local db=$1
 
-# Push to S3 bucket
-CMD_S3_PUT="/usr/bin/s3cmd \
- -r put /tmp/${BACKUP_NAME}/${item_str} \
- s3://${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}/"
+  POST2INFLUX "database_backup_started,instance=${REPLICA_SET},database=${db} value=true"
 
+  mongodump --db $db \
+    --out /tmp/${BACKUP_NAME} \
+    --host ${HOST_STR} \
+    --port ${MONGODB_PORT} \
+    --authenticationDatabase admin \
+    --username ${MONGODB_USER} \
+    --password ${MONGODB_PASS} \
+      || { POST2INFLUX "database_backup_failed,instance=${REPLICA_SET},database=${db} value=true" && return; }
+
+  POST2INFLUX "database_backup_completed,instance=${REPLICA_SET},database=${db} value=true"
+}
+
+push_to_s3() {
+  local db=$1
+
+  POST2INFLUX "database_s3-put_started,instance=${REPLICA_SET},database=${db} value=true"
+
+  s3cmd put --recursive /tmp/${BACKUP_NAME}/${db} s3://${BUCKET}/${POLICY_CYCLE}/${db}/ \
+    || { POST2INFLUX "database_s3-put_failed,instance=${REPLICA_SET},database=${db} value=true" && return; }
+
+  POST2INFLUX "database_s3-put_completed,instance=${REPLICA_SET},database=${db} value=true"
+}
 
 # ****************** Now Do the Work ******************#
 # *****************************************************#
 
 # Record the time the whole instance backup started. 
 echo "=> Backup started: ${BACKUP_NAME}"
-echo -n "instance_backup_started,instance=${REPLICA_SET} value=true" | ${POST2INFLUX}
+POST2INFLUX "instance_backup_started,instance=${REPLICA_SET} value=true"
 
-# Get a list of databases on this host
-
-for item in ${DATABASES}
-do
-  # Strip remaining quotes
-  item_str="${item%\"}"
-  echo "Database: ${item_str}"
-  echo -n "database_backup_started,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX
-  ${CMD_BACKUP} --db ${item_str} || { echo -n "database_backup_failed,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX; }
-  echo -n "database_backup_completed,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX
-  echo -n "database_s3-put_started,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX
-  ${CMD_S3_PUT} || { echo -n "database_s3-put_failed,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX; }
-  echo -n "database_s3-put_completed,instance=${REPLICA_SET},database=${item_str} value=true" | $POST2INFLUX
-  rm -Rf /tmp/*
+for db in $DATABASES; do
+  backup_db $db
+  push_to_s3 $db
 done
 
-echo -n "instance_backup_completed,instance=${REPLICA_SET} value=true" | $POST2INFLUX
+POST2INFLUX "instance_backup_completed,instance=${REPLICA_SET} value=true"
 echo "=> Backup done"
