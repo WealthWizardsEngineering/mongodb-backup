@@ -10,7 +10,5 @@ gpg_passphrase = $GPG_PHRASE
 host_base = s3.amazonaws.com
 host_bucket = %(bucket)s.s3.amazonaws.com
 secret_key = $SECRET_KEY
-server_side_encryption = True
-server_side_encryption_kms_id = $SERVER_SIDE_ENCRYPTION_KMS_ID
 use_https = True
 verbosity = WARNING

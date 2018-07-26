@@ -25,26 +25,18 @@ In IAM:
         {
             "Effect": "Allow",
             "Action": [
-                "s3:ListAllMyBuckets"
-            ],
-            "Resource": "arn:aws:s3:::*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:ListBucket",
-                "s3:GetBucketLocation"
-            ],
-            "Resource": "arn:aws:s3:::instance-mongodb-backups"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
                 "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject"
+                "s3:GetObject"
             ],
-            "Resource": "arn:aws:s3:::instance-mongodb-backups/*"
+            "Resource": "arn:aws:s3:::infrastructure-mongodb-backups/*",
+            "Condition": {
+                "ForAnyValue:IpAddress": {
+                    "aws:SourceIp": [
+                        "YOUR_1st_IP_HERE/32",
+                        "YOUR_2nd_IP_HERE/32"
+                    ]
+                }
+            }
         }
     ]
 }
@@ -82,9 +74,8 @@ MONGODB_PORT=27017
 MONGODB_DB={optional-db-to-backup/restore}
 MONGODB_USER=backup-user
 MONGODB_PASS={from-mongo-user-created-above}
-BUCKET={s3-backet-created-above
+BUCKET={s3-backet-created-above}
 GPG_PHRASE={phrase}
-SERVER_SIDE_ENCRYPTION_KMS_ID={kms-key-id}
 ACCESS_KEY={from-s3-user-created-above}
 SECRET_KEY={from-s3-user-created-above}
 ```
@@ -111,7 +102,6 @@ MONGODB_PORT=27017
 MONGODB_USER=restore-user
 MONGODB_PASS=password
 BUCKET={bucket/cluster-to-restore}
-SERVER_SIDE_ENCRYPTION_KMS_ID={kms-key-id}
 GPG_PHRASE={phrase}
 ACCESS_KEY={aws-access-key}
 SECRET_KEY={aws-secret-key}
