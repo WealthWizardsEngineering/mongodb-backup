@@ -1,24 +1,33 @@
-FROM debian:jessie-slim
+FROM debian:stretch-slim
 
-ENV S3CMD_VERSION=1.6.1
-ENV MONGO_VERSION=3.4.14-2.12
+ENV MONGO_PACKAGE percona-server-mongodb
+ENV MONGO_MAJOR 34
 
-RUN apt-get update && apt-get install -y libpcap0.8 jq curl python python-dateutil python-magic && rm -rf /var/lib/apt/lists/*
-ADD http://repo.percona.com/apt/pool/main/p/percona-server-mongodb-34/percona-server-mongodb-34-shell_${MONGO_VERSION}.jessie_amd64.deb /tmp/
-ADD http://repo.percona.com/apt/pool/main/p/percona-server-mongodb-34/percona-server-mongodb-34-tools_${MONGO_VERSION}.jessie_amd64.deb /tmp/
-RUN dpkg -i /tmp/percona-server-mongodb-34-shell_${MONGO_VERSION}.jessie_amd64.deb \
-&& dpkg -i /tmp/percona-server-mongodb-34-tools_${MONGO_VERSION}.jessie_amd64.deb \
-&& rm -f /tmp/percona-server-mongodb*
+RUN apt-get update && apt-get upgrade -y
 
-ADD https://github.com/s3tools/s3cmd/releases/download/v${S3CMD_VERSION}/s3cmd-${S3CMD_VERSION}.tar.gz /opt
-# Docker behviour has changed so the ADD will automatically extract the tar.gz file, but we need to still try for older clients
-RUN tar -zxvf /opt/s3cmd-${S3CMD_VERSION}.tar.gz --directory=/opt || true
-RUN ln -s /opt/s3cmd-${S3CMD_VERSION}/s3cmd /usr/bin/s3cmd
-RUN ln -s /opt/s3cmd-${S3CMD_VERSION}/S3 /usr/bin/S3
-RUN mkdir /var/backup
+RUN apt-get install -y --no-install-recommends python-pip python-setuptools ; \
+    pip install --no-cache-dir wheel ; \
+    pip install --no-cache-dir s3cmd ; \
+    apt-get purge -y --auto-remove python-pip python-setuptools
+
+RUN apt-get install -y --no-install-recommends \
+    jq curl gnupg dirmngr lsb-release ca-certificates python python-dateutil python-magic
+
+# Add Percona key (https://www.percona.com/blog/2016/10/13/new-signing-key-for-percona-debian-and-ubuntu-packages/)
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8507EFA5
+RUN echo "deb http://repo.percona.com/apt "$(lsb_release -sc)" main" | tee /etc/apt/sources.list.d/percona.list
+
+RUN apt-get update && apt-get install -y \
+      ${MONGO_PACKAGE}-${MONGO_MAJOR}-shell \
+      ${MONGO_PACKAGE}-${MONGO_MAJOR}-tools
+
+RUN apt-get purge -y --auto-remove lsb-release dirmngr; \
+    rm -rf /var/lib/apt/lists/*
 
 ADD src/* /
 ADD src/s3cfg /root/.s3cfg
 
+RUN mkdir /var/backup
 VOLUME ["/var/backup"]
+
 CMD [ "/backup.sh" ]
