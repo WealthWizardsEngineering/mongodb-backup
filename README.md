@@ -28,7 +28,7 @@ In IAM:
                 "s3:PutObject",
                 "s3:GetObject"
             ],
-            "Resource": "arn:aws:s3:::infrastructure-mongodb-backups/*",
+            "Resource": "arn:aws:s3:::your_bucket_name/*",
             "Condition": {
                 "ForAnyValue:IpAddress": {
                     "aws:SourceIp": [
