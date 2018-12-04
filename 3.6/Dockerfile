@@ -14,7 +14,7 @@ RUN apt-get install -y --no-install-recommends \
     jq curl gnupg dirmngr lsb-release ca-certificates python python-dateutil python-magic
 
 # Add Percona key (https://www.percona.com/blog/2016/10/13/new-signing-key-for-percona-debian-and-ubuntu-packages/)
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8507EFA5
+RUN apt-key adv --no-tty --keyserver keyserver.ubuntu.com --recv-keys 8507EFA5
 RUN echo "deb http://repo.percona.com/apt "$(lsb_release -sc)" main" | tee /etc/apt/sources.list.d/percona.list
 
 RUN apt-get update && apt-get install -y \
