@@ -101,6 +101,10 @@ push_to_s3() {
   POST2INFLUX "database_s3-put_completed,instance=${REPLICA_SET},database=${db} value=true"
 }
 
+clean_database() {
+  local db=$1
+  rm -rf /tmp/${BACKUP_NAME}/${db}
+}
 
 # ****************** Now Do the Work ******************#
 # *****************************************************#
@@ -112,6 +116,7 @@ POST2INFLUX "instance_backup_started,instance=${REPLICA_SET} value=true"
 for db in $DATABASES; do
   backup_db $db
   push_to_s3 $db
+  clean_database $db
 done
 
 POST2INFLUX "instance_backup_completed,instance=${REPLICA_SET} value=true"
