@@ -1,7 +1,7 @@
 FROM debian:stretch-slim
 
 ENV MONGO_PACKAGE percona-server-mongodb
-ENV MONGO_MAJOR 36
+ARG MONGO_MAJOR
 
 RUN apt-get update && apt-get upgrade -y
 
@@ -13,9 +13,10 @@ RUN apt-get install -y --no-install-recommends python-pip python-setuptools ; \
 RUN apt-get install -y --no-install-recommends \
     jq curl gnupg dirmngr lsb-release ca-certificates python python-dateutil python-magic
 
-# Add Percona key (https://www.percona.com/blog/2016/10/13/new-signing-key-for-percona-debian-and-ubuntu-packages/)
-RUN apt-key adv --no-tty --keyserver keyserver.ubuntu.com --recv-keys 8507EFA5
-RUN echo "deb http://repo.percona.com/apt "$(lsb_release -sc)" main" | tee /etc/apt/sources.list.d/percona.list
+# https://www.percona.com/doc/percona-server-for-mongodb/LATEST/install/apt.html
+RUN curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/percona-release.deb
+RUN dpkg -i /tmp/percona-release.deb
+RUN percona-release enable psmdb-42 release
 
 RUN apt-get update && apt-get install -y \
       ${MONGO_PACKAGE}-${MONGO_MAJOR}-shell \
@@ -24,7 +25,9 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get purge -y --auto-remove lsb-release dirmngr; \
     rm -rf /var/lib/apt/lists/*
 
-ADD src/* /
+ADD https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem /etc/ssl/certs/rds-combined-ca-bundle.pem
+
+ADD src /
 ADD src/s3cfg /root/.s3cfg
 
 RUN mkdir /var/backup

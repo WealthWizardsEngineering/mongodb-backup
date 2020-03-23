@@ -2,17 +2,15 @@
 set -eo pipefail
 
 # Default to shortest retention period
-# If the day/date checks below natch, increase the retention, appropriate to the matched period. 
+# If the day/date checks below natch, increase the retention, appropriate to the matched period.
 
 unset_vars() {
   unset MONGODB_REPLICASET
   unset MONGODB_PASS
+  unset MONGODB_USE_RDS_SSL
   unset GPG_PHRASE
   unset ACCESS_KEY
   unset SECRET_KEY
-  echo "Revoking lease: ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}"
-  curl -sS --request PUT --header "X-Vault-Token: ${APPROLE_TOKEN}" \
-    ${VAULT_ADDR}/v1/sys/leases/revoke/${AWS_LEASE_ID}
 }
 
 clean_environment(){
@@ -20,9 +18,6 @@ clean_environment(){
   unset_vars
 }
 trap clean_environment EXIT
-
-# Get AWS keys
-source /environment.sh
 
 # Define how we post monitoring status messages
 POST2INFLUX() {
@@ -34,6 +29,8 @@ REPLICA_SET=${MONGODB_REPLICASET}
 HOST_STR=${MONGODB_HOST}
 [[ ( -n "${MONGODB_REPLICASET}" ) ]] && HOST_STR="${MONGODB_REPLICASET}/${MONGODB_HOST}"
 [[ ( -n "${MONGODB_REPLICASET}" ) ]] && REPLICA_SET_STR="replicaSet=${MONGODB_REPLICASET}&"
+[ -z "${CLUSTER_NAME}" ] && CLUSTER_NAME=${REPLICA_SET}
+[ -z "${MONGODB_USE_RDS_SSL}" ] || MONGODB_SSL_STR="--ssl --sslCAFile /etc/ssl/certs/rds-combined-ca-bundle.pem"
 
 # Generate the backup name from the date. We have opted to append a more at-a-glance friendly format to the name.
 BACKUP_NAME=$(date +\%Y.\%m.\%d.\%H\%M\%S_\%A-\%d-\%B)
@@ -53,7 +50,7 @@ esac
 
 # Check if it's the first of the month and assign cycle accordingly (and over-ride weekly, it Monday is the first of the month)
 DAYMONTH=$(date +\%d.\%B)
-case $DAYMONTH in 
+case $DAYMONTH in
   "01.January")
     POLICY_CYCLE=yearly
     ;;
@@ -67,43 +64,42 @@ esac
 
 # ****************** define some commands ******************#
 # **********************************************************#
-
 MONGDB_CONNECTION_URI="mongodb://${MONGODB_USER}:${MONGODB_PASS}@${MONGODB_HOST}:${MONGODB_PORT}/admin?${REPLICA_SET_STR}authSource=admin"
 
 # build a list of which databases to backup
-DATABASES=$(mongo $MONGDB_CONNECTION_URI --quiet --eval "db.getMongo().getDBNames()" | \
+DATABASES=$(mongo ${MONGODB_SSL_STR} $MONGDB_CONNECTION_URI --quiet --eval "db.getMongo().getDBNames()" | \
               egrep -v $(date +%Y-%m-%d)\|config | \
               jq -r '.[]') \
-              || { POST2INFLUX "database_listing_failed,instance=${REPLICA_SET} value=true" && exit 1; }
+              || { POST2INFLUX "database_listing_failed,instance=${CLUSTER_NAME} value=true" && exit 1; }
 echo "Databases to backup:"
 echo $DATABASES
 
 backup_db() {
   local db=$1
 
-  POST2INFLUX "database_backup_started,instance=${REPLICA_SET},database=${db} value=true"
+  POST2INFLUX "database_backup_started,instance=${CLUSTER_NAME},database=${db} value=true"
 
   mongodump --db $db \
     --out /tmp/${BACKUP_NAME} \
     --host ${HOST_STR} \
-    --port ${MONGODB_PORT} \
+    --port ${MONGODB_PORT} ${MONGODB_SSL_STR} \
     --authenticationDatabase admin \
     --username ${MONGODB_USER} \
     --password ${MONGODB_PASS} \
-      || { POST2INFLUX "database_backup_failed,instance=${REPLICA_SET},database=${db} value=true" && return; }
+      || { POST2INFLUX "database_backup_failed,instance=${CLUSTER_NAME},database=${db} value=true" && return; }
 
-  POST2INFLUX "database_backup_completed,instance=${REPLICA_SET},database=${db} value=true"
+  POST2INFLUX "database_backup_completed,instance=${CLUSTER_NAME},database=${db} value=true"
 }
 
 push_to_s3() {
   local db=$1
 
-  POST2INFLUX "database_s3-put_started,instance=${REPLICA_SET},database=${db} value=true"
+  POST2INFLUX "database_s3-put_started,instance=${CLUSTER_NAME},database=${db} value=true"
 
   s3cmd put --recursive /tmp/${BACKUP_NAME}/${db} s3://${BUCKET}/${POLICY_CYCLE}/${BACKUP_NAME}/ \
-    || { POST2INFLUX "database_s3-put_failed,instance=${REPLICA_SET},database=${db} value=true" && return; }
+    || { POST2INFLUX "database_s3-put_failed,instance=${CLUSTER_NAME},database=${db} value=true" && return; }
 
-  POST2INFLUX "database_s3-put_completed,instance=${REPLICA_SET},database=${db} value=true"
+  POST2INFLUX "database_s3-put_completed,instance=${CLUSTER_NAME},database=${db} value=true"
 }
 
 clean_database() {
@@ -114,9 +110,9 @@ clean_database() {
 # ****************** Now Do the Work ******************#
 # *****************************************************#
 
-# Record the time the whole instance backup started. 
+# Record the time the whole instance backup started.
 echo "=> Backup started: ${BACKUP_NAME}"
-POST2INFLUX "instance_backup_started,instance=${REPLICA_SET} value=true"
+POST2INFLUX "instance_backup_started,instance=${CLUSTER_NAME} value=true"
 
 for db in $DATABASES; do
   backup_db $db
@@ -124,5 +120,5 @@ for db in $DATABASES; do
   clean_database $db
 done
 
-POST2INFLUX "instance_backup_completed,instance=${REPLICA_SET} value=true"
+POST2INFLUX "instance_backup_completed,instance=${CLUSTER_NAME} value=true"
 echo "=> Backup done"
