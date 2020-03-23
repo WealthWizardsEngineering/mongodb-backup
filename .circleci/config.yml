@@ -7,11 +7,11 @@ jobs:
       - run:
           name : build-mongodb-backup-34
           command: |
-            docker build -t quay.io/wealthwizards/mongodb-backup:3.4 -f 3.4/Dockerfile 3.4/
+            docker build . -t quay.io/wealthwizards/mongodb-backup:3.4 --build-arg MONGO_MAJOR=34
       - run:
           name : build-mongodb-backup-36
           command: |
-            docker build -t quay.io/wealthwizards/mongodb-backup:3.6 -f 3.6/Dockerfile 3.6/
+            docker build . -t quay.io/wealthwizards/mongodb-backup:3.6 --build-arg MONGO_MAJOR=36
             docker tag quay.io/wealthwizards/mongodb-backup:3.6 quay.io/wealthwizards/mongodb-backup:latest
   buildAndDeploy:
     machine: true
@@ -20,11 +20,11 @@ jobs:
       - run:
           name : build-mongodb-backup-34
           command: |
-            docker build -t quay.io/wealthwizards/mongodb-backup:3.4 -f 3.4/Dockerfile 3.4/
+            docker build . -t quay.io/wealthwizards/mongodb-backup:3.4 --build-arg MONGO_MAJOR=34
       - run:
           name : build-mongodb-backup-36
           command: |
-            docker build -t quay.io/wealthwizards/mongodb-backup:3.6 -f 3.6/Dockerfile 3.6/
+            docker build . -t quay.io/wealthwizards/mongodb-backup:3.6 --build-arg MONGO_MAJOR=36
             docker tag quay.io/wealthwizards/mongodb-backup:3.6 quay.io/wealthwizards/mongodb-backup:latest
       - deploy:
           name : docker-login

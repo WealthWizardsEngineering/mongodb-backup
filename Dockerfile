@@ -1,7 +1,7 @@
 FROM debian:stretch-slim
 
 ENV MONGO_PACKAGE percona-server-mongodb
-ENV MONGO_MAJOR 36
+ARG MONGO_MAJOR
 
 RUN apt-get update && apt-get upgrade -y
 
@@ -25,7 +25,9 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get purge -y --auto-remove lsb-release dirmngr; \
     rm -rf /var/lib/apt/lists/*
 
-ADD src/* /
+ADD https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem /etc/ssl/certs/rds-combined-ca-bundle.pem
+
+ADD src /
 ADD src/s3cfg /root/.s3cfg
 
 RUN mkdir /var/backup
