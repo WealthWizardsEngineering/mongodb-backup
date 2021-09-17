@@ -37,8 +37,8 @@ CMD_RESTORE="mongorestore \
  --host ${HOST_STR} \
  --port ${MONGODB_PORT} ${MONGODB_SSL_STR} \
  --authenticationDatabase admin \
- --username ${MONGODB_USER} \
- --password ${MONGODB_PASS} \
+ --username="${MONGODB_USER}" \
+ --password="${MONGODB_PASS}" \
  ${RESTORE_DB} ${RESTORE_PATH}"
 
 echo "=> Restore database ${MONGODB_DB}"
