@@ -84,8 +84,8 @@ backup_db() {
     --host ${HOST_STR} \
     --port ${MONGODB_PORT} ${MONGODB_SSL_STR} \
     --authenticationDatabase admin \
-    --username ${MONGODB_USER} \
-    --password ${MONGODB_PASS} \
+    --username="${MONGODB_USER}" \
+    --password="${MONGODB_PASS}" \
       || { POST2INFLUX "database_backup_failed,instance=${CLUSTER_NAME},database=${db} value=true" && return; }
 
   POST2INFLUX "database_backup_completed,instance=${CLUSTER_NAME},database=${db} value=true"
