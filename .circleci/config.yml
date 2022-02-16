@@ -1,7 +1,8 @@
 version: 2
 jobs:
   build:
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - checkout
       - run:
@@ -14,7 +15,8 @@ jobs:
             docker build . -t quay.io/wealthwizards/mongodb-backup:3.6 --build-arg MONGO_MAJOR=36
             docker tag quay.io/wealthwizards/mongodb-backup:3.6 quay.io/wealthwizards/mongodb-backup:latest
   buildAndDeploy:
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - checkout
       - run:
